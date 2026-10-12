@@ -10,11 +10,16 @@
 
 - 用户登录 / 注册页面
 - 管理端整体布局（顶部栏 + 侧边导航）
-- 登录接口 `POST /api/auth/login`（账号密码校验、返回用户信息）
+- 登录接口 `POST /api/auth/login`
+- **密码使用 bcrypt 哈希存储**（数据库中不保存明文）
+- **JWT 登录鉴权**：登录成功后签发 token，受保护接口通过 `get_current_user` 依赖校验身份
+- 获取当前登录用户信息接口 `GET /api/user/info`
+- 用户账号具备角色区分（`admin` 管理员 / `student` 学生）与启用状态（禁用用户无法登录）
 
 ### 开发中
 
-- JWT 鉴权（登录后签发 token，接口按角色控制访问）
+- 前端接入后端登录接口（获取并存储 token、请求携带认证头）
+- 用户注册接口
 - 实验室与设备的增删改查
 - 预约申请与审核流程
 
@@ -24,6 +29,7 @@
 |---|---|
 | 前端 | Vue 3、Vite、Vue Router、Element Plus、Axios |
 | 后端 | FastAPI、SQLAlchemy 2.0、Pydantic v2、Uvicorn |
+| 认证 | PyJWT（JWT 签发与校验）、bcrypt（密码哈希） |
 | 数据库 | MySQL 8（`utf8mb4`） |
 | 驱动 | PyMySQL |
 
@@ -31,34 +37,41 @@
 
 ```
 lab-agent/
-├── backend/                    # 后端服务
+├── backend/                        # 后端服务
 │   ├── app/
-│   │   ├── api/                # 路由层（接口定义）
-│   │   │   └── auth.py         # 登录 / 鉴权接口
-│   │   ├── models/             # ORM 模型（对应数据库表）
-│   │   │   └── user.py         # 用户表
-│   │   ├── schemas/            # 请求 / 响应数据结构
-│   │   │   ├── auth.py
-│   │   │   └── user.py
-│   │   ├── config.py           # 配置加载（读取 .env）
-│   │   ├── database.py         # 数据库连接与会话管理
-│   │   └── main.py             # 应用入口
-│   ├── requirements.txt        # Python 依赖
-│   └── .env.example            # 环境变量模板
+│   │   ├── api/                    # 路由层（接口定义）
+│   │   │   ├── __init__.py         # 汇总各路由，统一挂载 /api 前缀
+│   │   │   ├── auth.py             # 登录接口
+│   │   │   └── user.py             # 用户信息接口
+│   │   ├── dependencies/           # 依赖注入
+│   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
+│   │   ├── models/                 # ORM 模型（对应数据库表）
+│   │   │   └── user.py             # 用户表
+│   │   ├── schemas/                # 请求 / 响应数据结构
+│   │   │   ├── auth.py             # LoginRequest
+│   │   │   └── user.py             # UserResponse
+│   │   ├── utils/                  # 通用工具
+│   │   │   ├── jwt.py              # token 签发与解析
+│   │   │   └── password.py         # 密码哈希与校验
+│   │   ├── config.py               # 配置加载（读取 .env）
+│   │   ├── database.py             # 数据库连接与会话管理
+│   │   └── main.py                 # 应用入口
+│   ├── requirements.txt            # Python 依赖
+│   └── .env.example                # 环境变量模板
 │
-└── frontend/                   # 前端应用
+└── frontend/                       # 前端应用
     ├── src/
-    │   ├── assets/             # 静态资源（样式、图片）
-    │   ├── layouts/            # 布局组件
-    │   │   └── Layout.vue      # 管理端整体框架
-    │   ├── views/              # 页面组件
+    │   ├── assets/                 # 静态资源（样式、图片）
+    │   ├── layouts/                # 布局组件
+    │   │   └── Layout.vue          # 管理端整体框架
+    │   ├── views/                  # 页面组件
     │   │   ├── Login.vue
     │   │   ├── Register.vue
     │   │   ├── Home.vue
     │   │   └── Lab.vue
-    │   ├── router/             # 路由配置
+    │   ├── router/                 # 路由配置
     │   │   └── index.js
-    │   ├── main.js             # 前端入口
+    │   ├── main.js                 # 前端入口
     │   └── App.vue
     ├── package.json
     └── vite.config.js
@@ -92,7 +105,7 @@ python -m venv .venv
 # 安装依赖
 pip install -r requirements.txt
 
-# 配置环境变量：复制模板并填入自己的数据库信息
+# 配置环境变量：复制模板并填写数据库信息与 JWT 密钥
 copy .env.example .env
 
 # 启动服务
@@ -101,6 +114,13 @@ uvicorn app.main:app --reload
 
 > **重要**：必须在 `backend` 目录下启动。项目内部使用 `from app.xxx` 形式的绝对导入，
 > 换个目录运行会报 `ModuleNotFoundError: No module named 'app'`。
+> 若想从项目根目录启动，可改用 `uvicorn app.main:app --reload --app-dir backend`。
+
+**生成 JWT 密钥**（`.env` 中的 `JWT_SECRET_KEY` 务必替换为随机值，不要使用示例值）：
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
 后端地址：<http://127.0.0.1:8000>
 
@@ -124,12 +144,15 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 
 ### 已实现接口
 
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/` | 连通性测试 |
-| POST | `/api/auth/login` | 用户登录 |
+| 方法 | 路径 | 说明 | 需要认证 |
+|---|---|---|---|
+| GET | `/` | 连通性测试 | 否 |
+| POST | `/api/auth/login` | 用户登录，返回 JWT token | 否 |
+| GET | `/api/user/info` | 获取当前登录用户信息 | **是** |
 
-**登录请求示例**
+### 登录
+
+**请求**
 
 ```json
 {
@@ -145,16 +168,44 @@ FastAPI 自动生成交互式文档，服务启动后访问：
   "code": 200,
   "message": "操作成功",
   "data": {
-    "id": 1,
-    "username": "admin",
-    "name": "管理员",
-    "role": "admin",
-    "phone": null,
-    "email": null,
-    "status": 1
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": 1,
+      "username": "admin",
+      "name": "管理员",
+      "role": "admin",
+      "phone": null,
+      "email": null,
+      "status": 1
+    }
   }
 }
 ```
+
+**失败响应**（账号或密码错误）
+
+```json
+{
+  "code": 400,
+  "message": "账号或密码错误"
+}
+```
+
+### 携带 token 访问受保护接口
+
+在请求头中加入 `Authorization` 字段：
+
+```
+Authorization: Bearer <登录返回的 token>
+```
+
+示例：
+
+```powershell
+curl http://127.0.0.1:8000/api/user/info -H "Authorization: Bearer 你的token"
+```
+
+token 有效期默认 24 小时（由 `.env` 的 `JWT_EXPIRE_HOURS` 控制），过期后需重新登录。
 
 ## 开发说明
 
@@ -171,13 +222,50 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | `create_time` | datetime | 创建时间 |
 | `update_time` | datetime | 更新时间（自动更新） |
 
-### 已知待改进项
+`users` 表字段：
 
-- [ ] **密码目前为明文存储与比对**，需改为 `bcrypt` 哈希
-- [ ] `users.username` 需增加唯一约束
-- [ ] `users.password` 字段长度需扩容（bcrypt 哈希为 60 字符）
-- [ ] 登录失败应返回 `401` 而非 `200 + code:400`
-- [ ] 补充 JWT 鉴权与角色权限校验
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `username` | varchar(50) | 账号，非空 |
+| `password` | varchar(255) | bcrypt 哈希值，非空 |
+| `name` | varchar(50) | 姓名，非空 |
+| `role` | varchar(50) | 角色：`student` / `admin`，非空 |
+| `email` | varchar(50) | 邮箱，可空 |
+| `phone` | varchar(50) | 手机号，可空 |
+| `avatar` | varchar(50) | 头像，可空 |
+| `status` | int | 状态：`0` 禁用、`1` 正常 |
+
+> 由于 `create_all` 只创建不存在的表、不会修改已有表结构。若修改了模型字段，
+> 需要手动 `DROP TABLE` 后重启服务重建。
+
+### 认证流程
+
+```
+POST /api/auth/login
+        │  校验账号密码（bcrypt.checkpw）
+        ▼
+   签发 JWT（payload 含 user_id、exp）
+        │  返回给前端
+        ▼
+前端后续请求携带 Authorization: Bearer <token>
+        │
+        ▼
+get_current_user 依赖：解析 token → 查询用户 → 校验 status
+        │
+        ▼
+    注入到接口函数的 current_user 参数
+```
+
+## 已知待改进项
+
+- [ ] `users.username` 增加唯一约束，避免出现同名账号
+- [ ] `verify_password` 增加异常兜底，兼容非 bcrypt 格式的历史数据
+- [ ] `get_current_user` 在用户不存在时返回 401 而非抛 500
+- [ ] 登录失败返回 HTTP 401/403 状态码，而非 `200 + code:400`
+- [ ] 密码长度校验（bcrypt 仅处理前 72 字节，超出会报错）
+- [ ] 前端接入后端登录接口，替换当前的模拟登录逻辑
+- [ ] 补充用户注册接口
+- [ ] 补充角色权限校验（区分学生与管理员可访问的接口）
 - [ ] 补充接口单元测试
 
 ## License
