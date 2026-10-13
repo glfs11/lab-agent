@@ -20,11 +20,14 @@
 - **前端接入后端登录接口**：基于 axios 封装请求层（`utils/request.js`），
   请求拦截器自动携带 `Authorization` 头，响应拦截器统一处理业务错误与 401 失效登出
 - **登录态管理**：token 与用户信息持久化到 localStorage，路由守卫拦截未登录访问
+- **用户注册接口** `POST /api/auth/register`：校验账号是否重复，密码 bcrypt 哈希后入库，
+  默认角色为 `student`
+- **Service 业务层**：路由层只负责参数接收与响应封装，业务逻辑下沉至
+  `services/auth_service.py`
 - CORS 跨域配置（后端显式允许前端源）
 
 ### 开发中
 
-- 用户注册接口
 - 实验室与设备的增删改查
 - 预约申请与审核流程
 
@@ -46,8 +49,10 @@ lab-agent/
 │   ├── app/
 │   │   ├── api/                    # 路由层（接口定义）
 │   │   │   ├── __init__.py         # 汇总各路由，统一挂载 /api 前缀
-│   │   │   ├── auth.py             # 登录接口
+│   │   │   ├── auth.py             # 登录 / 注册接口
 │   │   │   └── user.py             # 用户信息接口
+│   │   ├── services/               # 业务逻辑层
+│   │   │   └── auth_service.py     # 登录 / 注册业务处理
 │   │   ├── dependencies/           # 依赖注入
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
 │   │   ├── models/                 # ORM 模型（对应数据库表）
@@ -56,7 +61,7 @@ lab-agent/
 │   │   │   ├── response.py         # 统一响应封装 Response
 │   │   │   └── exceptions.py       # 自定义业务异常与全局异常处理器
 │   │   ├── schemas/                # 请求 / 响应数据结构
-│   │   │   ├── auth.py             # LoginRequest / LoginResponse
+│   │   │   ├── auth.py             # LoginRequest / RegisterRequest / LoginResponse
 │   │   │   └── user.py             # UserResponse
 │   │   ├── utils/                  # 通用工具
 │   │   │   ├── jwt.py              # token 签发与解析
@@ -162,6 +167,7 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 |---|---|---|---|
 | GET | `/` | 连通性测试 | 否 |
 | POST | `/api/auth/login` | 用户登录，返回 JWT token | 否 |
+| POST | `/api/auth/register` | 用户注册 | 否 |
 | GET | `/api/user/info` | 获取当前登录用户信息 | **是** |
 
 ### 登录
@@ -277,8 +283,6 @@ get_current_user 依赖：解析 token → 查询用户 → 校验 status
 - [ ] `get_current_user` 在用户不存在时返回 401 而非抛 500
 - [ ] 登录失败返回 HTTP 401/403 状态码，而非 `200 + code:400`
 - [ ] 密码长度校验（bcrypt 仅处理前 72 字节，超出会报错）
-- [ ] 前端接入后端登录接口，替换当前的模拟登录逻辑
-- [ ] 补充用户注册接口
 - [ ] 补充角色权限校验（区分学生与管理员可访问的接口）
 - [ ] 补充接口单元测试
 
