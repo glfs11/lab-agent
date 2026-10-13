@@ -15,6 +15,8 @@
 - **JWT 登录鉴权**：登录成功后签发 token，受保护接口通过 `get_current_user` 依赖校验身份
 - 获取当前登录用户信息接口 `GET /api/user/info`
 - 用户账号具备角色区分（`admin` 管理员 / `student` 学生）与启用状态（禁用用户无法登录）
+- **统一响应格式**（`Response` 封装 `code / message / data`）与**全局异常处理**
+  （业务异常、HTTP 异常、参数校验异常、未捕获异常统一拦截）
 
 ### 开发中
 
@@ -47,8 +49,11 @@ lab-agent/
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
 │   │   ├── models/                 # ORM 模型（对应数据库表）
 │   │   │   └── user.py             # 用户表
+│   │   ├── common/                 # 公共组件
+│   │   │   ├── response.py         # 统一响应封装 Response
+│   │   │   └── exceptions.py       # 自定义业务异常与全局异常处理器
 │   │   ├── schemas/                # 请求 / 响应数据结构
-│   │   │   ├── auth.py             # LoginRequest
+│   │   │   ├── auth.py             # LoginRequest / LoginResponse
 │   │   │   └── user.py             # UserResponse
 │   │   ├── utils/                  # 通用工具
 │   │   │   ├── jwt.py              # token 签发与解析
