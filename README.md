@@ -17,10 +17,13 @@
 - 用户账号具备角色区分（`admin` 管理员 / `student` 学生）与启用状态（禁用用户无法登录）
 - **统一响应格式**（`Response` 封装 `code / message / data`）与**全局异常处理**
   （业务异常、HTTP 异常、参数校验异常、未捕获异常统一拦截）
+- **前端接入后端登录接口**：基于 axios 封装请求层（`utils/request.js`），
+  请求拦截器自动携带 `Authorization` 头，响应拦截器统一处理业务错误与 401 失效登出
+- **登录态管理**：token 与用户信息持久化到 localStorage，路由守卫拦截未登录访问
+- CORS 跨域配置（后端显式允许前端源）
 
 ### 开发中
 
-- 前端接入后端登录接口（获取并存储 token、请求携带认证头）
 - 用户注册接口
 - 实验室与设备的增删改查
 - 预约申请与审核流程
@@ -74,6 +77,12 @@ lab-agent/
     │   │   ├── Register.vue
     │   │   ├── Home.vue
     │   │   └── Lab.vue
+    │   ├── api/                    # 接口定义
+    │   │   └── auth.js             # 登录接口
+    │   ├── utils/                  # 工具模块
+    │   │   ├── request.js          # axios 封装（请求 / 响应拦截器）
+    │   │   ├── auth.js             # token 与用户信息的读写清理
+    │   │   └── user.js             # 用户信息响应式状态
     │   ├── router/                 # 路由配置
     │   │   └── index.js
     │   ├── main.js                 # 前端入口
