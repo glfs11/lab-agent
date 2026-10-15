@@ -28,8 +28,10 @@
 - **文件上传接口** `POST /api/files/upload`：后缀白名单校验、大小限制（100MB）、
   UUID 重命名避免冲突、流式写入磁盘，并通过 `/uploads` 静态路由访问
 - **个人信息管理**：个人中心页面支持查看与修改资料（名称 / 邮箱 / 手机号 / 头像），
-  头像上传后即时预览；后端提供 `GET /api/user/info` 与 `PUT /api/user/update`，
+  头像上传后即时预览；后端提供 `GET /api/user/me` 与 `PUT /api/user/me`，
   通过 `user_service` 实现部分字段更新（仅更新提交的字段）
+- **修改密码**：`PUT /api/user/password`，校验原密码是否正确、新旧密码不得相同，
+  新密码经 bcrypt 重新哈希后入库，修改成功后前端清除登录态并要求重新登录
 
 ### 开发中
 
@@ -89,7 +91,8 @@ lab-agent/
     │   │   ├── Register.vue
     │   │   ├── Home.vue
     │   │   ├── Lab.vue
-    │   │   └── Profile.vue         # 个人中心（资料查看与修改）
+    │   │   ├── Profile.vue         # 个人中心（资料查看与修改）
+    │   │   └── Password.vue        # 修改密码
     │   ├── api/                    # 接口定义
     │   │   ├── auth.js             # 登录 / 注册接口
     │   │   ├── user.js             # 用户信息接口
@@ -178,8 +181,9 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | GET | `/` | 连通性测试 | 否 |
 | POST | `/api/auth/login` | 用户登录，返回 JWT token | 否 |
 | POST | `/api/auth/register` | 用户注册 | 否 |
-| GET | `/api/user/info` | 获取当前登录用户信息 | **是** |
-| PUT | `/api/user/update` | 修改当前用户信息 | **是** |
+| GET | `/api/user/me` | 获取当前登录用户信息 | **是** |
+| PUT | `/api/user/me` | 修改当前用户信息 | **是** |
+| PUT | `/api/user/password` | 修改密码 | **是** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
