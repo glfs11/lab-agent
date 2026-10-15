@@ -6,8 +6,16 @@ class UserResponse(BaseModel):
     username: str
     name: str
     role: str
-    phone: str | None = None
     email: str | None = None
+    phone: str | None = None
+    avatar: str | None = None
     status: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserUpdateRequest(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    avatar: str | None = None
