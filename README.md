@@ -25,6 +25,8 @@
 - **Service 业务层**：路由层只负责参数接收与响应封装，业务逻辑下沉至
   `services/auth_service.py`
 - CORS 跨域配置（后端显式允许前端源）
+- **文件上传接口** `POST /api/files/upload`：后缀白名单校验、大小限制（100MB）、
+  UUID 重命名避免冲突、流式写入磁盘，并通过 `/uploads` 静态路由访问
 
 ### 开发中
 
@@ -50,7 +52,8 @@ lab-agent/
 │   │   ├── api/                    # 路由层（接口定义）
 │   │   │   ├── __init__.py         # 汇总各路由，统一挂载 /api 前缀
 │   │   │   ├── auth.py             # 登录 / 注册接口
-│   │   │   └── user.py             # 用户信息接口
+│   │   │   ├── user.py             # 用户信息接口
+│   │   │   └── files.py            # 文件上传接口
 │   │   ├── services/               # 业务逻辑层
 │   │   │   └── auth_service.py     # 登录 / 注册业务处理
 │   │   ├── dependencies/           # 依赖注入
@@ -70,6 +73,7 @@ lab-agent/
 │   │   ├── database.py             # 数据库连接与会话管理
 │   │   └── main.py                 # 应用入口
 │   ├── requirements.txt            # Python 依赖
+│   ├── uploads/                    # 用户上传的文件（运行时生成，不提交）
 │   └── .env.example                # 环境变量模板
 │
 └── frontend/                       # 前端应用
@@ -169,6 +173,7 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | POST | `/api/auth/login` | 用户登录，返回 JWT token | 否 |
 | POST | `/api/auth/register` | 用户注册 | 否 |
 | GET | `/api/user/info` | 获取当前登录用户信息 | **是** |
+| POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
 
