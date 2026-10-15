@@ -5,6 +5,8 @@ from app.models.user import User  # noqa: F401  必须导入，否则 create_all
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
+from app.config import UPLOAD_DIR
 from app.common.exceptions import (
     BusinessException,
     bussiness_excpetion_hadler,
@@ -37,6 +39,8 @@ app.add_exception_handler(HTTPException, http_excpetion_hadler)
 app.add_exception_handler(RequestValidationError, validation_excpetion_hadler)
 # 全局的异常兜底，必须放在最后注册
 app.add_exception_handler(Exception, global_excpetion_hadler)
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 @app.get("/")
