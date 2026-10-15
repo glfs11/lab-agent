@@ -4,20 +4,20 @@ from sqlalchemy.orm import Session
 from app.common.response import Response
 from app.models.user import User
 from app.dependencies.auth import get_current_user
-from app.schemas.user import UserResponse, UserUpdateRequest
+from app.schemas.user import PasswordUpdateRequest, UserResponse, UserUpdateRequest
 from app.services import user_service
 from app.database import get_db
 
 router = APIRouter(prefix="/user", tags=["用户信息接口"])
 
 
-@router.get("/info")
+@router.get("/me")
 def get_user_info(current_user: User = Depends(get_current_user)):
     """获取当前登录用户信息"""
     return Response.success(data=user_service.get_user_info(current_user))
 
 
-@router.put("/update")
+@router.put("/me")
 def update_user_info(
     data: UserUpdateRequest,
     current_user: User = Depends(get_current_user),
@@ -26,3 +26,14 @@ def update_user_info(
     """更新当前用户信息"""
     res = user_service.update_user_info(db, current_user, data)
     return Response.success(data=res)
+
+
+@router.put("/password")
+def update_password(
+    data: PasswordUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """修改当前用户密码"""
+    user_service.update_password(db, current_user, data)
+    return Response.success(message="密码修改成功")
