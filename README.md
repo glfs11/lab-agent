@@ -27,6 +27,9 @@
 - CORS 跨域配置（后端显式允许前端源）
 - **文件上传接口** `POST /api/files/upload`：后缀白名单校验、大小限制（100MB）、
   UUID 重命名避免冲突、流式写入磁盘，并通过 `/uploads` 静态路由访问
+- **个人信息管理**：个人中心页面支持查看与修改资料（名称 / 邮箱 / 手机号 / 头像），
+  头像上传后即时预览；后端提供 `GET /api/user/info` 与 `PUT /api/user/update`，
+  通过 `user_service` 实现部分字段更新（仅更新提交的字段）
 
 ### 开发中
 
@@ -85,9 +88,12 @@ lab-agent/
     │   │   ├── Login.vue
     │   │   ├── Register.vue
     │   │   ├── Home.vue
-    │   │   └── Lab.vue
+    │   │   ├── Lab.vue
+    │   │   └── Profile.vue         # 个人中心（资料查看与修改）
     │   ├── api/                    # 接口定义
-    │   │   └── auth.js             # 登录接口
+    │   │   ├── auth.js             # 登录 / 注册接口
+    │   │   ├── user.js             # 用户信息接口
+    │   │   └── file.js             # 文件上传接口
     │   ├── utils/                  # 工具模块
     │   │   ├── request.js          # axios 封装（请求 / 响应拦截器）
     │   │   ├── auth.js             # token 与用户信息的读写清理
@@ -173,6 +179,7 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | POST | `/api/auth/login` | 用户登录，返回 JWT token | 否 |
 | POST | `/api/auth/register` | 用户注册 | 否 |
 | GET | `/api/user/info` | 获取当前登录用户信息 | **是** |
+| PUT | `/api/user/update` | 修改当前用户信息 | **是** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
