@@ -34,7 +34,10 @@ async def validation_excpetion_hadler(request: Request, exc: RequestValidationEr
     """参数异常处理器"""
     return JSONResponse(
         status_code=422,
-        content=Response.error(code=422, message="请求参数校验错误").model_dump(),
+        content=Response.error(
+            code=422,
+            message=f"请求参数校验错误:{str(exc.errors())}",
+        ).model_dump(),
     )
 
 
