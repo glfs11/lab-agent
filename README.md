@@ -35,10 +35,15 @@
 - **用户管理**：用户列表支持分页与关键词模糊搜索（账号 / 名称），
   管理员可新增、编辑、删除用户，并设置角色（学生 / 管理员）与启用状态；
   通过 `get_current_admin` 依赖做管理员权限校验，非管理员访问返回 403
+- **实验室管理**：实验室列表支持分页与关键词模糊搜索（名称 / 位置），
+  管理员可新增、编辑、删除实验室，并可设置容量、开放时段、封面图与开放状态；
+  创建与重命名时校验名称唯一性（更新时排除自身）
+- **菜单权限**：侧边栏「实验室管理」「用户管理」仅对 `admin` 角色显示
 
 ### 开发中
 
-- 实验室与设备的增删改查
+- 设备的增删改查
+- 学生端实验室浏览与预约申请
 - 预约申请与审核流程
 
 ## 技术栈
@@ -60,20 +65,25 @@ lab-agent/
 │   │   ├── api/                    # 路由层（接口定义）
 │   │   │   ├── __init__.py         # 汇总各路由，统一挂载 /api 前缀
 │   │   │   ├── auth.py             # 登录 / 注册接口
-│   │   │   ├── user.py             # 用户信息接口
+│   │   │   ├── user.py             # 用户信息与用户管理接口
+│   │   │   ├── lab.py              # 实验室管理接口
 │   │   │   └── files.py            # 文件上传接口
 │   │   ├── services/               # 业务逻辑层
-│   │   │   └── auth_service.py     # 登录 / 注册业务处理
+│   │   │   ├── auth_service.py     # 登录 / 注册业务处理
+│   │   │   ├── user_service.py     # 用户信息与用户管理业务处理
+│   │   │   └── lab_service.py      # 实验室业务处理
 │   │   ├── dependencies/           # 依赖注入
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
 │   │   ├── models/                 # ORM 模型（对应数据库表）
-│   │   │   └── user.py             # 用户表
+│   │   │   ├── user.py             # 用户表
+│   │   │   └── lab.py              # 实验室表
 │   │   ├── common/                 # 公共组件
 │   │   │   ├── response.py         # 统一响应封装 Response
 │   │   │   └── exceptions.py       # 自定义业务异常与全局异常处理器
 │   │   ├── schemas/                # 请求 / 响应数据结构
 │   │   │   ├── auth.py             # LoginRequest / RegisterRequest / LoginResponse
-│   │   │   └── user.py             # UserResponse
+│   │   │   ├── user.py             # UserResponse / 创建与更新请求
+│   │   │   └── lab.py              # LabResponse / 创建与更新请求
 │   │   ├── utils/                  # 通用工具
 │   │   │   ├── jwt.py              # token 签发与解析
 │   │   │   └── password.py         # 密码哈希与校验
@@ -192,6 +202,10 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | POST | `/api/user` | 新增用户 | **是（管理员）** |
 | PUT | `/api/user/{user_id}` | 更新指定用户 | **是（管理员）** |
 | DELETE | `/api/user/{user_id}` | 删除指定用户 | **是（管理员）** |
+| GET | `/api/lab/list` | 实验室列表（分页 + 关键词搜索） | **是（管理员）** |
+| POST | `/api/lab` | 新增实验室 | **是（管理员）** |
+| PUT | `/api/lab/{lab_id}` | 更新指定实验室 | **是（管理员）** |
+| DELETE | `/api/lab/{lab_id}` | 删除指定实验室 | **是（管理员）** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
