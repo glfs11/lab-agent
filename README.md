@@ -32,6 +32,9 @@
   通过 `user_service` 实现部分字段更新（仅更新提交的字段）
 - **修改密码**：`PUT /api/user/password`，校验原密码是否正确、新旧密码不得相同，
   新密码经 bcrypt 重新哈希后入库，修改成功后前端清除登录态并要求重新登录
+- **用户管理**：用户列表支持分页与关键词模糊搜索（账号 / 名称），
+  管理员可新增、编辑、删除用户，并设置角色（学生 / 管理员）与启用状态；
+  通过 `get_current_admin` 依赖做管理员权限校验，非管理员访问返回 403
 
 ### 开发中
 
@@ -92,10 +95,11 @@ lab-agent/
     │   │   ├── Home.vue
     │   │   ├── Lab.vue
     │   │   ├── Profile.vue         # 个人中心（资料查看与修改）
-    │   │   └── Password.vue        # 修改密码
+    │   │   ├── Password.vue        # 修改密码
+    │   │   └── User.vue            # 用户管理（分页查询与增删改）
     │   ├── api/                    # 接口定义
     │   │   ├── auth.js             # 登录 / 注册接口
-    │   │   ├── user.js             # 用户信息接口
+    │   │   ├── user.js             # 用户信息与用户管理接口
     │   │   └── file.js             # 文件上传接口
     │   ├── utils/                  # 工具模块
     │   │   ├── request.js          # axios 封装（请求 / 响应拦截器）
@@ -184,6 +188,10 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | GET | `/api/user/me` | 获取当前登录用户信息 | **是** |
 | PUT | `/api/user/me` | 修改当前用户信息 | **是** |
 | PUT | `/api/user/password` | 修改密码 | **是** |
+| GET | `/api/user/list` | 用户列表（分页 + 关键词搜索） | **是（管理员）** |
+| POST | `/api/user` | 新增用户 | **是（管理员）** |
+| PUT | `/api/user/{user_id}` | 更新指定用户 | **是（管理员）** |
+| DELETE | `/api/user/{user_id}` | 删除指定用户 | **是（管理员）** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
