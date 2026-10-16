@@ -68,7 +68,7 @@ def create_user(
 
 
 @router.put("/{user_id}")
-def create_user(
+def update_user(
     user_id: int,
     data: UserUpdateRequest,
     current_user: User = Depends(get_current_admin),
@@ -79,10 +79,10 @@ def create_user(
 
 
 @router.delete("/{user_id}")
-def create_user(
+def delete_user(
     user_id: int,
     current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    res = user_service.delete_user(db, user_id, current_user)
+    user_service.delete_user(db, user_id, current_user)
     return Response.success()

@@ -3,6 +3,7 @@ from app.api import api
 from app.database import Base, engine
 from app.models.user import User  # noqa: F401  必须导入，否则 create_all 不知道这张表
 from fastapi import FastAPI, HTTPException
+from app.models.lab import Lab
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
