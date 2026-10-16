@@ -25,19 +25,19 @@
           </el-upload>
         </el-form-item>
         <el-form-item label="账号">
-          <el-input disabled v-model="form.username" placeholer="请输入账号" />
+          <el-input disabled v-model="form.username" placeholder="请输入账号" />
         </el-form-item>
         <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholer="请输入名称" />
+          <el-input v-model="form.name" placeholder="请输入名称" />
         </el-form-item>
         <el-form-item label="角色">
           <el-input disabled v-model="roleLabel" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
-          <el-input v-model="form.email" placeholer="请输入邮箱" />
+          <el-input v-model="form.email" placeholder="请输入邮箱" />
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
-          <el-input v-model="form.phone" placeholer="请输入手机号" />
+          <el-input v-model="form.phone" placeholder="请输入手机号" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="submitting" @click="handleSubmit">保存修改</el-button>
