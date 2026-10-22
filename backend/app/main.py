@@ -5,6 +5,7 @@ from app.models.user import User  # noqa: F401  必须导入，否则 create_all
 from fastapi import FastAPI, HTTPException
 from app.models.lab import Lab
 from app.models.equipment import Equipment
+from app.models.reservation import Reservation
 from starlette.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
