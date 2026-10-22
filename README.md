@@ -44,11 +44,17 @@
   管理员可新增、编辑、删除设备；设备通过外键关联所属实验室，
   列表返回时带出 `lab_name`（用 `joinedload` 预加载，避免 N+1 查询）
 - **学生端实验室列表**：学生登录后可查看实验室列表（只读，不可编辑）
+- **预约申请**：`POST /api/reservation`，创建预约前做多重校验 ——
+  日期不早于今天、结束时间晚于开始时间、当天预约不早于当前时刻、
+  实验室存在且处于开放状态、预约时段落在实验室开放时段内、设备存在且非维修状态；
+  并用**区间重叠算法**（`start < 目标结束 AND end > 目标开始`）检测同一实验室 /
+  同一设备在同一日期的时段冲突，避免重复预约
 
 ### 开发中
 
-- 学生端预约申请
-- 预约审批流程
+- 预约列表查询（我的预约 / 全部预约）
+- 预约审批（管理员通过 / 拒绝）
+- 预约取消
 
 ## 技术栈
 
@@ -72,18 +78,21 @@ lab-agent/
 │   │   │   ├── user.py             # 用户信息与用户管理接口
 │   │   │   ├── lab.py              # 实验室管理接口
 │   │   │   ├── equipment.py        # 设备管理接口
+│   │   │   ├── reservation.py      # 预约接口
 │   │   │   └── files.py            # 文件上传接口
 │   │   ├── services/               # 业务逻辑层
 │   │   │   ├── auth_service.py     # 登录 / 注册业务处理
 │   │   │   ├── user_service.py     # 用户信息与用户管理业务处理
 │   │   │   ├── lab_service.py      # 实验室业务处理
-│   │   │   └── equipment_service.py # 设备业务处理
+│   │   │   ├── equipment_service.py # 设备业务处理
+│   │   │   └── reservation_service.py # 预约业务处理（时段冲突检测）
 │   │   ├── dependencies/           # 依赖注入
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
 │   │   ├── models/                 # ORM 模型（对应数据库表）
 │   │   │   ├── user.py             # 用户表
 │   │   │   ├── lab.py              # 实验室表
-│   │   │   └── equipment.py        # 设备表（外键关联实验室）
+│   │   │   ├── equipment.py        # 设备表（外键关联实验室）
+│   │   │   └── reservation.py      # 预约表（关联用户 / 实验室 / 设备）
 │   │   ├── common/                 # 公共组件
 │   │   │   ├── response.py         # 统一响应封装 Response
 │   │   │   └── exceptions.py       # 自定义业务异常与全局异常处理器
@@ -91,7 +100,8 @@ lab-agent/
 │   │   │   ├── auth.py             # LoginRequest / RegisterRequest / LoginResponse
 │   │   │   ├── user.py             # UserResponse / 创建与更新请求
 │   │   │   ├── lab.py              # LabResponse / 创建与更新请求
-│   │   │   └── equipment.py        # EquipmentResponse / 创建与更新请求
+│   │   │   ├── equipment.py        # EquipmentResponse / 创建与更新请求
+│   │   │   └── reservation.py      # ReservationResponse / 创建请求
 │   │   ├── utils/                  # 通用工具
 │   │   │   ├── jwt.py              # token 签发与解析
 │   │   │   └── password.py         # 密码哈希与校验
@@ -223,6 +233,7 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | POST | `/api/equipment` | 新增设备 | **是（管理员）** |
 | PUT | `/api/equipment/{equipment_id}` | 更新指定设备 | **是（管理员）** |
 | DELETE | `/api/equipment/{equipment_id}` | 删除指定设备 | **是（管理员）** |
+| POST | `/api/reservation` | 创建预约（含时段冲突检测） | **是** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
