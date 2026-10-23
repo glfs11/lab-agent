@@ -56,11 +56,16 @@
   与状态（仅「待审核」可取消），取消后状态置为「已取消」
 - **预约审核**：`PUT /api/reservation/{id}/audit`（管理员），
   仅「待审核」记录可审核为「已通过」或「已拒绝」，校验状态合法性
+- **AI 智能助手**：`POST /api/ai/chat`，基于 OpenAI SDK 对接兼容 OpenAI 接口的
+  大模型服务；用 System Prompt 约束模型只回答系统相关问题，并明确告知
+  「无法查询真实实验室 / 设备 / 预约数据」以抑制模型编造；
+  前端用 `marked` 渲染 Markdown、`DOMPurify` 过滤 HTML 防 XSS
 
 ### 开发中
 
 - 预约时段可视化（日历 / 时间段选择器）
 - 预约到期提醒
+- AI 助手接入工具调用（查询真实实验室 / 预约状态）
 - 接口单元测试
 
 ## 技术栈
@@ -70,6 +75,7 @@
 | 前端 | Vue 3、Vite、Vue Router、Element Plus、Axios |
 | 后端 | FastAPI、SQLAlchemy 2.0、Pydantic v2、Uvicorn |
 | 认证 | PyJWT（JWT 签发与校验）、bcrypt（密码哈希） |
+| AI | OpenAI SDK（兼容 OpenAI 接口的大模型）、marked（Markdown 渲染）、DOMPurify（XSS 过滤） |
 | 数据库 | MySQL 8（`utf8mb4`） |
 | 驱动 | PyMySQL |
 
@@ -86,13 +92,15 @@ lab-agent/
 │   │   │   ├── lab.py              # 实验室管理接口
 │   │   │   ├── equipment.py        # 设备管理接口
 │   │   │   ├── reservation.py      # 预约接口
+│   │   │   ├── ai.py               # AI 对话接口
 │   │   │   └── files.py            # 文件上传接口
 │   │   ├── services/               # 业务逻辑层
 │   │   │   ├── auth_service.py     # 登录 / 注册业务处理
 │   │   │   ├── user_service.py     # 用户信息与用户管理业务处理
 │   │   │   ├── lab_service.py      # 实验室业务处理
 │   │   │   ├── equipment_service.py # 设备业务处理
-│   │   │   └── reservation_service.py # 预约业务处理（时段冲突检测）
+│   │   │   ├── reservation_service.py # 预约业务处理（时段冲突检测）
+│   │   │   └── ai_service.py       # AI 对话业务处理（System Prompt 约束）
 │   │   ├── dependencies/           # 依赖注入
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
 │   │   ├── models/                 # ORM 模型（对应数据库表）
@@ -108,7 +116,8 @@ lab-agent/
 │   │   │   ├── user.py             # UserResponse / 创建与更新请求
 │   │   │   ├── lab.py              # LabResponse / 创建与更新请求
 │   │   │   ├── equipment.py        # EquipmentResponse / 创建与更新请求
-│   │   │   └── reservation.py      # ReservationResponse / 创建请求
+│   │   │   ├── reservation.py      # ReservationResponse / 创建请求
+│   │   │   └── ai.py               # ChatMessage / ChatRequest
 │   │   ├── utils/                  # 通用工具
 │   │   │   ├── jwt.py              # token 签发与解析
 │   │   │   └── password.py         # 密码哈希与校验
@@ -138,13 +147,15 @@ lab-agent/
     │   │   ├── LabList.vue         # 学生端实验室列表
     │   │   ├── LabEquipment.vue    # 实验室设备查看
     │   │   ├── MyReservation.vue   # 我的预约（列表 / 状态筛选 / 取消）
-    │   │   └── AuditReservation.vue # 预约审核（管理员）
+    │   │   ├── AuditReservation.vue # 预约审核（管理员）
+    │   │   └── AIChat.vue          # AI 智能助手（Markdown 渲染 + XSS 过滤）
     │   ├── api/                    # 接口定义
     │   │   ├── auth.js             # 登录 / 注册接口
     │   │   ├── user.js             # 用户信息与用户管理接口
     │   │   ├── lab.js              # 实验室接口
     │   │   ├── equipment.js        # 设备接口
     │   │   ├── reservation.js      # 预约接口
+    │   │   ├── ai.js               # AI 对话接口
     │   │   └── file.js             # 文件上传接口
     │   ├── utils/                  # 工具模块
     │   │   ├── request.js          # axios 封装（请求 / 响应拦截器）
@@ -186,12 +197,24 @@ python -m venv .venv
 # 安装依赖
 pip install -r requirements.txt
 
-# 配置环境变量：复制模板并填写数据库信息与 JWT 密钥
+# 配置环境变量：复制模板并填写数据库、JWT 与大模型配置
 copy .env.example .env
 
 # 启动服务
 uvicorn app.main:app --reload
 ```
+
+> **⚠️ `.env` 必须包含以下配置项**，否则后端启动会报 `ValidationError: Field required`：
+>
+> | 配置项 | 说明 |
+> |---|---|
+> | `DATABASE_URL` | MySQL 连接串 |
+> | `JWT_SECRET_KEY` | 随机密钥，用 `python -c "import secrets; print(secrets.token_urlsafe(32))"` 生成 |
+> | `LLM_API_KEY` | 大模型 API 密钥（AI 助手功能必需） |
+> | `LLM_BASE_URL` | 大模型接口地址，如 `https://api.deepseek.com` |
+> | `LLM_MODEL` | 模型名称，如 `deepseek-chat` |
+>
+> 完整示例见 [backend/.env.example](backend/.env.example)。**不要提交真实的 `.env`**。
 
 > **重要**：必须在 `backend` 目录下启动。项目内部使用 `from app.xxx` 形式的绝对导入，
 > 换个目录运行会报 `ModuleNotFoundError: No module named 'app'`。
@@ -249,6 +272,7 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | GET | `/api/reservation/list` | 预约列表（学生看自己，管理员看全部） | **是** |
 | PUT | `/api/reservation/{reservation_id}/cancel` | 取消预约 | **是** |
 | PUT | `/api/reservation/{reservation_id}/audit` | 审核预约（通过 / 拒绝） | **是（管理员）** |
+| POST | `/api/ai/chat` | AI 对话 | **是** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
