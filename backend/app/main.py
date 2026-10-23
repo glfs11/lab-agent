@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from app.api import api
 from app.database import Base, engine
@@ -10,6 +12,8 @@ from starlette.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from app.config import UPLOAD_DIR
+import asyncio
+from app.services import reservation_service
 from app.common.exceptions import (
     BusinessException,
     bussiness_excpetion_hadler,
@@ -17,6 +21,18 @@ from app.common.exceptions import (
     validation_excpetion_hadler,
     global_excpetion_hadler,
 )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(
+        reservation_service.run_expire_scan()
+    )  # 启动项目开启异步的扫描任务
+    yield
+    task.cancel()  # 关闭项目同时取消异步任务
+
+
+app = FastAPI(lifespan=lifespan)
 
 app = FastAPI()
 
