@@ -49,12 +49,19 @@
   实验室存在且处于开放状态、预约时段落在实验室开放时段内、设备存在且非维修状态；
   并用**区间重叠算法**（`start < 目标结束 AND end > 目标开始`）检测同一实验室 /
   同一设备在同一日期的时段冲突，避免重复预约
+- **预约记录查询**：`GET /api/reservation/list`，支持分页与按状态筛选；
+  **学生只能看到自己的预约，管理员可见全部**；返回时补全 `user_name`、
+  `lab_name`、`equipment_name` 与预约类型（实验室 / 设备）
+- **取消预约**：`PUT /api/reservation/{id}/cancel`，校验记录归属（只能取消自己的）
+  与状态（仅「待审核」可取消），取消后状态置为「已取消」
+- **预约审核**：`PUT /api/reservation/{id}/audit`（管理员），
+  仅「待审核」记录可审核为「已通过」或「已拒绝」，校验状态合法性
 
 ### 开发中
 
-- 预约列表查询（我的预约 / 全部预约）
-- 预约审批（管理员通过 / 拒绝）
-- 预约取消
+- 预约时段可视化（日历 / 时间段选择器）
+- 预约到期提醒
+- 接口单元测试
 
 ## 技术栈
 
@@ -115,6 +122,8 @@ lab-agent/
 └── frontend/                       # 前端应用
     ├── src/
     │   ├── assets/                 # 静态资源（样式、图片）
+    │   ├── components/             # 公共组件
+    │   │   └── ReserveDialog.vue   # 预约弹窗（实验室 / 设备通用）
     │   ├── layouts/                # 布局组件
     │   │   └── Layout.vue          # 管理端整体框架
     │   ├── views/                  # 页面组件
@@ -127,12 +136,15 @@ lab-agent/
     │   │   ├── User.vue            # 用户管理（分页查询与增删改）
     │   │   ├── Equipment.vue       # 设备管理（分页查询与增删改）
     │   │   ├── LabList.vue         # 学生端实验室列表
-    │   │   └── LabEquipment.vue    # 实验室设备查看
+    │   │   ├── LabEquipment.vue    # 实验室设备查看
+    │   │   ├── MyReservation.vue   # 我的预约（列表 / 状态筛选 / 取消）
+    │   │   └── AuditReservation.vue # 预约审核（管理员）
     │   ├── api/                    # 接口定义
     │   │   ├── auth.js             # 登录 / 注册接口
     │   │   ├── user.js             # 用户信息与用户管理接口
     │   │   ├── lab.js              # 实验室接口
     │   │   ├── equipment.js        # 设备接口
+    │   │   ├── reservation.js      # 预约接口
     │   │   └── file.js             # 文件上传接口
     │   ├── utils/                  # 工具模块
     │   │   ├── request.js          # axios 封装（请求 / 响应拦截器）
@@ -234,6 +246,9 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | PUT | `/api/equipment/{equipment_id}` | 更新指定设备 | **是（管理员）** |
 | DELETE | `/api/equipment/{equipment_id}` | 删除指定设备 | **是（管理员）** |
 | POST | `/api/reservation` | 创建预约（含时段冲突检测） | **是** |
+| GET | `/api/reservation/list` | 预约列表（学生看自己，管理员看全部） | **是** |
+| PUT | `/api/reservation/{reservation_id}/cancel` | 取消预约 | **是** |
+| PUT | `/api/reservation/{reservation_id}/audit` | 审核预约（通过 / 拒绝） | **是（管理员）** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
