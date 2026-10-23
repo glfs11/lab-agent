@@ -33,12 +33,7 @@
       </el-header>
       <el-container>
         <el-aside width="220px">
-          <el-menu
-            router
-            :default-active="router.currentRoute.value.path"
-            style="height: 100%"
-            default-active="/manager/home"
-          >
+          <el-menu router :default-active="router.currentRoute.value.path" style="height: 100%">
             <el-menu-item index="/manager/home">
               <el-icon><icon-menu /></el-icon>
               系统首页
@@ -67,6 +62,10 @@
               <el-icon><DocumentChecked /></el-icon>
               <span>预约审核</span>
             </el-menu-item>
+            <el-menu-item index="/manager/ai-chat">
+              <el-icon><ChatDotRound /></el-icon>
+              <span>AI智能助手</span>
+            </el-menu-item>
           </el-menu>
         </el-aside>
         <el-main>
@@ -88,7 +87,9 @@ import {
   User,
   OfficeBuilding,
   Tickets,
-  DocumentChecked
+  Document,
+  DocumentChecked,
+  ChatDotRound
 } from '@element-plus/icons-vue'
 
 const { userInfo } = useUser()
