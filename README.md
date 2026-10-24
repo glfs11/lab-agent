@@ -402,13 +402,24 @@ get_current_user 依赖：解析 token → 查询用户 → 校验 status
 
 ## 已知待改进项
 
+### 后端 / 安全
+
 - [ ] `users.username` 增加唯一约束，避免出现同名账号
 - [ ] `verify_password` 增加异常兜底，兼容非 bcrypt 格式的历史数据
 - [ ] `get_current_user` 在用户不存在时返回 401 而非抛 500
 - [ ] 登录失败返回 HTTP 401/403 状态码，而非 `200 + code:400`
 - [ ] 密码长度校验（bcrypt 仅处理前 72 字节，超出会报错）
-- [ ] 补充角色权限校验（区分学生与管理员可访问的接口）
+
+### AI / Agent
+
+- [ ] Agent 会话持久化（LangGraph checkpointer），支持上下文跨请求保留
+- [ ] 补充 Agent 工具的单元测试（工具参数解析、异常回传）
+- [ ] 清理旧版 `ai_service.py`（现由 LangGraph 实现替代，保留供方案对比）
+
+### 通用
+
 - [ ] 补充接口单元测试
+- [ ] 引入 Alembic 管理数据库迁移（当前依赖 `create_all`，改结构需手动 drop）
 
 ## License
 
