@@ -47,4 +47,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
-backend/uploads/1792049409487_5f266ad7.jpg
+
+# ---------------- 运行时产物（不提交） ----------------
+# 用户上传的文件
+backend/uploads/
+# RAG 向量库（几百 MB，可重建）
+backend/data/chroma/

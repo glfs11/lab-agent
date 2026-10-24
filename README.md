@@ -60,6 +60,10 @@
   大模型服务；用 System Prompt 约束模型只回答系统相关问题，并明确告知
   「无法查询真实实验室 / 设备 / 预约数据」以抑制模型编造；
   前端用 `marked` 渲染 Markdown、`DOMPurify` 过滤 HTML 防 XSS
+- **RAG 知识库检索**：把 `backend/data/kb/*.md` 中的实验室规则文档入库，
+  用 `chromadb` 持久化向量 + `BAAI/bge-small-zh-v1.5` 中文 embedding；
+  每次对话先检索最相关的知识片段（带相似度阈值过滤与排序），拼进 System Prompt，
+  让模型基于资料回答而不是编造；向量库首次运行时自动构建
 
 ### 开发中
 
@@ -75,7 +79,8 @@
 | 前端 | Vue 3、Vite、Vue Router、Element Plus、Axios |
 | 后端 | FastAPI、SQLAlchemy 2.0、Pydantic v2、Uvicorn |
 | 认证 | PyJWT（JWT 签发与校验）、bcrypt（密码哈希） |
-| AI | OpenAI SDK（兼容 OpenAI 接口的大模型）、marked（Markdown 渲染）、DOMPurify（XSS 过滤） |
+| AI · 后端 | OpenAI SDK（大模型调用）、chromadb（向量库）、sentence-transformers（bge-small-zh-v1.5 中文 embedding） |
+| AI · 前端 | marked（Markdown 渲染）、DOMPurify（XSS 过滤） |
 | 数据库 | MySQL 8（`utf8mb4`） |
 | 驱动 | PyMySQL |
 
@@ -100,7 +105,8 @@ lab-agent/
 │   │   │   ├── lab_service.py      # 实验室业务处理
 │   │   │   ├── equipment_service.py # 设备业务处理
 │   │   │   ├── reservation_service.py # 预约业务处理（时段冲突检测）
-│   │   │   └── ai_service.py       # AI 对话业务处理（System Prompt 约束）
+│   │   │   ├── ai_service.py       # AI 对话业务处理（System Prompt 约束）
+│   │   │   └── kb_service.py       # 知识库检索（RAG：chromadb + 中文 embedding）
 │   │   ├── dependencies/           # 依赖注入
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
 │   │   ├── models/                 # ORM 模型（对应数据库表）
@@ -124,6 +130,9 @@ lab-agent/
 │   │   ├── config.py               # 配置加载（读取 .env）
 │   │   ├── database.py             # 数据库连接与会话管理
 │   │   └── main.py                 # 应用入口
+│   ├── data/
+│   │   ├── kb/                     # 知识库文档（Markdown 语料，提交）
+│   │   └── chroma/                 # 向量库持久化（运行时生成，不提交）
 │   ├── requirements.txt            # Python 依赖
 │   ├── uploads/                    # 用户上传的文件（运行时生成，不提交）
 │   └── .env.example                # 环境变量模板
