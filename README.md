@@ -57,9 +57,15 @@
   与状态（仅「待审核」可取消），取消后状态置为「已取消」
 - **预约审核**：`PUT /api/reservation/{id}/audit`（管理员），
   仅「待审核」记录可审核为「已通过」或「已拒绝」，校验状态合法性
-- **AI 智能助手**：`POST /api/ai/chat`，基于 LangChain 的 `ChatOpenAI` 对接
-  兼容 OpenAI 接口的大模型服务；用 System Prompt 约束模型只回答系统相关问题、
-  不编造数据；前端用 `marked` 渲染 Markdown、`DOMPurify` 过滤 HTML 防 XSS
+- **AI 智能助手**：`POST /api/ai/chat/stream`（SSE 流式），基于 LangChain 的
+  `ChatOpenAI` 对接兼容 OpenAI 接口的大模型服务；用 System Prompt 约束模型
+  只回答系统相关问题、不编造数据；前端用 `marked` 渲染 Markdown、
+  `DOMPurify` 过滤 HTML 防 XSS
+- **流式对话**：后端用 `StreamingResponse` 推送 SSE 事件
+  （`status` / `tool_start` / `tool_end` / `token` / `done` / `error`），
+  对话过程中实时展示工具调用进度与逐字输出；因 `EventSource` 无法携带 JWT，
+  前端改用 `fetch` + `ReadableStream` 手动解析，并处理 TCP 分片（buffer 缓存）
+  与 `content-type` 校验
 - **RAG 知识库检索**：把 `backend/data/kb/*.md` 中的实验室规则文档入库，
   用 `chromadb` 持久化向量 + `BAAI/bge-small-zh-v1.5` 中文 embedding；
   检索时带相似度阈值过滤与排序，结果作为工具返回值供模型引用
@@ -291,7 +297,7 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 | GET | `/api/reservation/list` | 预约列表（学生看自己，管理员看全部） | **是** |
 | PUT | `/api/reservation/{reservation_id}/cancel` | 取消预约 | **是** |
 | PUT | `/api/reservation/{reservation_id}/audit` | 审核预约（通过 / 拒绝） | **是（管理员）** |
-| POST | `/api/ai/chat` | AI 对话 | **是** |
+| POST | `/api/ai/chat/stream` | AI 对话（SSE 流式） | **是** |
 | POST | `/api/files/upload` | 文件上传 | 否 |
 
 ### 登录
