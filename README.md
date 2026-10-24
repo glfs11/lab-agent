@@ -57,19 +57,23 @@
 - **预约审核**：`PUT /api/reservation/{id}/audit`（管理员），
   仅「待审核」记录可审核为「已通过」或「已拒绝」，校验状态合法性
 - **AI 智能助手**：`POST /api/ai/chat`，基于 OpenAI SDK 对接兼容 OpenAI 接口的
-  大模型服务；用 System Prompt 约束模型只回答系统相关问题，并明确告知
-  「无法查询真实实验室 / 设备 / 预约数据」以抑制模型编造；
+  大模型服务；用 System Prompt 约束模型只回答系统相关问题、不编造数据；
   前端用 `marked` 渲染 Markdown、`DOMPurify` 过滤 HTML 防 XSS
 - **RAG 知识库检索**：把 `backend/data/kb/*.md` 中的实验室规则文档入库，
   用 `chromadb` 持久化向量 + `BAAI/bge-small-zh-v1.5` 中文 embedding；
   每次对话先检索最相关的知识片段（带相似度阈值过滤与排序），拼进 System Prompt，
   让模型基于资料回答而不是编造；向量库首次运行时自动构建
+- **Tool Calling（函数调用）**：为大模型注册 `list_open_labs`、
+  `list_lab_equipments` 两个工具，由模型自主判断是否需要调用；
+  后端执行工具查询真实数据库，把结果以 `role: "tool"` 消息回灌，
+  最多循环 3 轮直到模型给出最终回答；工具内部异常以 JSON 形式回传模型，
+  使其能根据错误信息调整参数重试
 
 ### 开发中
 
 - 预约时段可视化（日历 / 时间段选择器）
 - 预约到期提醒
-- AI 助手接入工具调用（查询真实实验室 / 预约状态）
+- AI 助手支持查询预约状态、并在用户确认后代发预约
 - 接口单元测试
 
 ## 技术栈
@@ -105,7 +109,7 @@ lab-agent/
 │   │   │   ├── lab_service.py      # 实验室业务处理
 │   │   │   ├── equipment_service.py # 设备业务处理
 │   │   │   ├── reservation_service.py # 预约业务处理（时段冲突检测）
-│   │   │   ├── ai_service.py       # AI 对话业务处理（System Prompt 约束）
+│   │   │   ├── ai_service.py       # AI 对话（System Prompt + Tool Calling 循环）
 │   │   │   └── kb_service.py       # 知识库检索（RAG：chromadb + 中文 embedding）
 │   │   ├── dependencies/           # 依赖注入
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
