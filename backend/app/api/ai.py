@@ -1,5 +1,3 @@
-from email import message
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.common.response import Response
@@ -13,6 +11,10 @@ router = APIRouter(prefix="/ai", tags=["AI相关的API"])
 
 
 @router.post("/chat")
-def chat(data: ChatRequest, current_user: User = Depends(get_current_user)):
-    content = ai_service.chat(data)
+def chat(
+    data: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    content = ai_service.chat(db, data)
     return Response.success(data=ChatMessage(role="assistant", content=content))
