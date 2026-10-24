@@ -7,12 +7,30 @@ from app.config import BASE_DIR
 
 KB_DIR = BASE_DIR / "data" / "kb"
 CHROMA_DIR = BASE_DIR / "data" / "chroma"
+EMBEDDING_MODEL_NAME = "BAAI/bge-small-zh-v1.5"
 
 _collection = None
 
-_embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name="BAAI/bge-small-zh-v1.5"
-)
+_embedding_fn = None
+
+
+def get_embedding_fn():
+    """懒加载 embedding 模型：只加载一次，之后复用同一个实例"""
+    global _embedding_fn
+    if _embedding_fn is not None:
+        return _embedding_fn
+    # SentenceTransformerEmbeddingFunction 自带类级缓存，同名模型也不会重复加载
+    _embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name=EMBEDDING_MODEL_NAME
+    )
+    return _embedding_fn
+
+
+def warmup():
+    """启动时预热：把模型加载 + 首次检索的开销付在启动阶段，别落在第一个用户请求上"""
+    col = get_collcetion()
+    if col.count() > 0:
+        col.query(query_texts=["预热"], n_results=1)
 
 
 def get_collcetion() -> Collection:
@@ -25,7 +43,7 @@ def get_collcetion() -> Collection:
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     col = client.get_or_create_collection(
-        name="lab_kb", embedding_function=_embedding_fn
+        name="lab_kb", embedding_function=get_embedding_fn()
     )
     if col.count() == 0:
         ids = []
