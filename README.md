@@ -1,8 +1,9 @@
-# 智能实验室预约系统
+# FastAPI + LangGraph 从零开发智能实验室预约系统
 
-基于 **Vue 3 + FastAPI + MySQL** 的实验室预约管理系统，支持学生查看与预约实验室、管理员管理实验室与用户。
+基于 **FastAPI + LangGraph + Vue 3 + MySQL** 的全栈 Agent 应用，包含 JWT 鉴权、
+预约时段冲突检测、RAG 知识库检索与 ReAct 式 Tool Calling 工作流。
 
-> 本项目为个人学习与实践项目，用于完整走通「前端 → 接口 → 数据库」的全栈开发流程。
+> 本项目为个人学习与实践项目，从零实现「前端 → 接口 → 数据库 → 大模型 Agent」的完整链路。
 
 ## 功能
 
@@ -56,18 +57,20 @@
   与状态（仅「待审核」可取消），取消后状态置为「已取消」
 - **预约审核**：`PUT /api/reservation/{id}/audit`（管理员），
   仅「待审核」记录可审核为「已通过」或「已拒绝」，校验状态合法性
-- **AI 智能助手**：`POST /api/ai/chat`，基于 OpenAI SDK 对接兼容 OpenAI 接口的
-  大模型服务；用 System Prompt 约束模型只回答系统相关问题、不编造数据；
-  前端用 `marked` 渲染 Markdown、`DOMPurify` 过滤 HTML 防 XSS
+- **AI 智能助手**：`POST /api/ai/chat`，基于 LangChain 的 `ChatOpenAI` 对接
+  兼容 OpenAI 接口的大模型服务；用 System Prompt 约束模型只回答系统相关问题、
+  不编造数据；前端用 `marked` 渲染 Markdown、`DOMPurify` 过滤 HTML 防 XSS
 - **RAG 知识库检索**：把 `backend/data/kb/*.md` 中的实验室规则文档入库，
   用 `chromadb` 持久化向量 + `BAAI/bge-small-zh-v1.5` 中文 embedding；
-  每次对话先检索最相关的知识片段（带相似度阈值过滤与排序），拼进 System Prompt，
-  让模型基于资料回答而不是编造；向量库首次运行时自动构建
-- **Tool Calling（函数调用）**：为大模型注册 `list_open_labs`、
-  `list_lab_equipments` 两个工具，由模型自主判断是否需要调用；
-  后端执行工具查询真实数据库，把结果以 `role: "tool"` 消息回灌，
-  最多循环 3 轮直到模型给出最终回答；工具内部异常以 JSON 形式回传模型，
-  使其能根据错误信息调整参数重试
+  检索时带相似度阈值过滤与排序，结果作为工具返回值供模型引用
+- **LangGraph Agent（ReAct 工作流）**：用 `StateGraph` 编排
+  `agent → tools_condition → tools → agent` 的循环，`ToolNode` 自动执行工具，
+  `recursion_limit=10` 防止死循环，`temperature=0` 保证工具调用稳定
+- **Agent 工具集**：`@tool` 定义 `search_lab_docs`（RAG 检索）、`list_open_labs`、
+  `list_lab_equipments`、`create_lab_reservation`、`get_today`；
+  工具内部异常以 JSON 回传模型，使其能自行修正参数后重试
+- **写操作二次确认**：SYSTEM_PROMPT 强制要求「创建预约前必须复述实验室 / 设备、
+  日期与时段并获得用户明确确认」，避免 Agent 擅自落库
 
 ### 开发中
 
@@ -83,7 +86,8 @@
 | 前端 | Vue 3、Vite、Vue Router、Element Plus、Axios |
 | 后端 | FastAPI、SQLAlchemy 2.0、Pydantic v2、Uvicorn |
 | 认证 | PyJWT（JWT 签发与校验）、bcrypt（密码哈希） |
-| AI · 后端 | OpenAI SDK（大模型调用）、chromadb（向量库）、sentence-transformers（bge-small-zh-v1.5 中文 embedding） |
+| AI · Agent | **LangGraph**（StateGraph / ToolNode / ReAct 工作流）、LangChain Core（`@tool` 工具定义）、LangChain OpenAI（ChatOpenAI） |
+| AI · 检索 | chromadb（向量库）、sentence-transformers（bge-small-zh-v1.5 中文 embedding） |
 | AI · 前端 | marked（Markdown 渲染）、DOMPurify（XSS 过滤） |
 | 数据库 | MySQL 8（`utf8mb4`） |
 | 驱动 | PyMySQL |
@@ -109,7 +113,9 @@ lab-agent/
 │   │   │   ├── lab_service.py      # 实验室业务处理
 │   │   │   ├── equipment_service.py # 设备业务处理
 │   │   │   ├── reservation_service.py # 预约业务处理（时段冲突检测）
-│   │   │   ├── ai_service.py       # AI 对话（System Prompt + Tool Calling 循环）
+│   │   │   ├── agent_service.py    # LangGraph Agent（StateGraph + ReAct 工作流）
+│   │   │   ├── agent_tools.py      # Agent 工具定义（@tool：查实验室/设备、RAG 检索、创建预约）
+│   │   │   ├── ai_service.py       # 旧版手写 Tool Calling 循环（保留供方案对比）
 │   │   │   └── kb_service.py       # 知识库检索（RAG：chromadb + 中文 embedding）
 │   │   ├── dependencies/           # 依赖注入
 │   │   │   └── auth.py             # get_current_user：从 token 解析当前用户
