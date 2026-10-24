@@ -1,3 +1,5 @@
+from typing import AsyncIterator
+
 from langchain_openai import ChatOpenAI
 from sqlalchemy.orm import Session
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
@@ -9,6 +11,9 @@ from app.models.user import User
 from app.schemas.ai import ChatRequest
 from app.services import agent_tools
 from app.config import settings
+from collections.abc import AsyncIterator
+from typing import Any
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 SYSTEM_PROMPT = """你是智能实验室预约系统的 Agent，回答要简洁。
 你可以：
@@ -30,6 +35,113 @@ SYSTEM_PROMPT = """你是智能实验室预约系统的 Agent，回答要简洁�
 如果是问开放时间或者实验室规则，优先调用 search_lab_docs，不要凭空回复。
 """
 
+TOOL_LABELS = {
+    "search_lab_docs": "检索实验室知识库",
+    "list_open_labs": "查询开放实验室",
+    "list_lab_equipments": "查询实验室设备",
+    "create_lab_reservation": "提交预约",
+    "get_today": "获取今天日期",
+}
+
+
+def _build_history(data: ChatRequest) -> list:
+    """前端只传 user/assistant 文本，转成 LangChain 消息对象。"""
+    history = []
+    for message in data.messages or []:
+        if message.role == "user" and message.content.strip():
+            history.append(HumanMessage(content=message.content.strip()))
+        elif message.role == "assistant" and message.content.strip():
+            history.append(AIMessage(content=message.content.strip()))
+    if not history:
+        raise BusinessException(message="请输入您要对话的内容")
+    return history
+
+
+def _tool_output_preview(output: Any, limit: int = 200) -> str:
+    """把工具结果收成短预览，避免整段 JSON 刷到前端过程区。"""
+    # LangGraph 里工具结果经常是 ToolMessage，正文在 .content
+    if isinstance(output, ToolMessage):
+        output = output.content
+    text = output if isinstance(output, str) else str(output)
+    # 太长就截断，末尾加省略号
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _chunk_text(chunk: Any) -> str:
+    """从模型流式 chunk 里抠出纯文本。
+    content 有时是 str，有时是 [{type, text}, ...] 这种块列表，要统一成字符串。
+    """
+    if chunk is None:
+        return ""
+    # chunk 可能是 AIMessageChunk，真正字在 .content
+    content = getattr(chunk, "content", None)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for part in content:
+            if isinstance(part, dict):
+                parts.append(part.get("text") or "")
+            elif isinstance(part, str):
+                parts.append(part)
+        return "".join(parts)
+    return str(content) if content is not None else ""
+
+
+async def stream_agent(
+    db: Session, current_user: User, data: ChatRequest
+) -> AsyncIterator[dict]:
+    """生成器：边跑 Agent 边 yield 事件，供 SSE 推给前端。
+    事件类型：status / tool_start / tool_end / token / done / error
+    """
+    try:
+        history = _build_history(data)
+        agent = build_agent(db, current_user)
+        # *history：把列表拆开，和 SystemMessage 拼成完整 messages
+        inputs = {"messages": [SystemMessage(content=SYSTEM_PROMPT), *history]}
+        # yield 先交出这一条，生成器暂停，调用方再次取值时继续执行
+        yield {"type": "status", "message": "正在思考…"}
+        # astream_events：图每走一步（调工具、吐字）都会冒出一个内部事件
+        async for event in agent.astream_events(
+            inputs,
+            version="v2",
+            config={"recursion_limit": 10},  # 图执行步数上限，防 agent⇄tools 空转
+        ):
+            kind = event.get("event")
+            if kind == "on_tool_start":
+                name = event.get("name") or ""
+                yield {
+                    "type": "tool_start",
+                    "name": name,
+                    "label": TOOL_LABELS.get(name, name),  # 没有中文映射就退回英文名
+                }
+            elif kind == "on_tool_end":
+                name = event.get("name") or ""
+                yield {
+                    "type": "tool_end",
+                    "name": name,
+                    "label": TOOL_LABELS.get(name, name),
+                    # 只给预览；完整结果仍在图内部 messages 里给模型用
+                    "preview": _tool_output_preview(
+                        (event.get("data") or {}).get("output")
+                    ),
+                }
+            elif kind == "on_chat_model_stream":
+                # 只收 agent 节点的字；其它内部节点的噪声丢掉
+                meta = event.get("metadata") or {}
+                if meta.get("langgraph_node") not in (None, "agent"):
+                    continue
+                text = _chunk_text((event.get("data") or {}).get("chunk"))
+                if text:
+                    yield {"type": "token", "content": text}
+        # 正常跑完：不要在 done 里再带一份全文，前端已经用 token 拼好了
+        yield {"type": "done"}
+    except BusinessException as exc:
+        # 流已经是 SSE，错误也要用 yield，别 raise 成普通 JSON
+        yield {"type": "error", "message": exc.message}
+    except Exception:
+        yield {"type": "error", "message": "大模型调用失败，请稍后重试"}
+
 
 def build_agent(db: Session, current_user: User):
     tools = agent_tools.build_tools(db, current_user)
@@ -38,6 +150,7 @@ def build_agent(db: Session, current_user: User):
         base_url=settings.LLM_BASE_URL,
         model=settings.LLM_MODEL,
         temperature=0,
+        streaming=True,
     ).bind_tools(tools)
 
     def agent_node(state: MessagesState):
