@@ -307,7 +307,7 @@ FastAPI 自动生成交互式文档，服务启动后访问：
 ```json
 {
   "username": "admin",
-  "password": "123456"
+  "password": "admin"
 }
 ```
 
